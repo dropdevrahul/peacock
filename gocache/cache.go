@@ -7,8 +7,8 @@ import (
 )
 
 type CacheData struct {
-	lastUsed  int64
-	bytesData []byte
+	LastUsed  int64
+	BytesData []byte
 }
 
 type Cache struct {
@@ -19,8 +19,8 @@ type Cache struct {
 func (c *Cache) Set(key *string, data []byte) {
 	c.mu.Lock()
 	c.cm[*key] = CacheData{
-		lastUsed:  (time.Now()).UnixNano(),
-		bytesData: data,
+		LastUsed:  (time.Now()).UnixNano(),
+		BytesData: data,
 	}
 	fmt.Println(*key)
 	defer c.mu.Unlock()
