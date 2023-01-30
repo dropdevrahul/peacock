@@ -1,10 +1,12 @@
 package gocache
 
 import (
-	"fmt"
+	"errors"
 	"sync"
 	"time"
 )
+
+var ErrEmptyValue = errors.New("empty value")
 
 type CacheData struct {
 	LastUsed  int64
@@ -16,15 +18,20 @@ type Cache struct {
 	mu sync.Mutex
 }
 
-func (c *Cache) Set(key *string, data []byte) {
+func (c *Cache) Set(key *string, data []byte) error {
+	if len(data) == 0 {
+		return ErrEmptyValue
+	}
+
 	c.mu.Lock()
 	c.cm[*key] = CacheData{
 		LastUsed:  (time.Now()).UnixNano(),
 		BytesData: data,
 	}
-	fmt.Println(*key)
+
 	defer c.mu.Unlock()
-	return
+
+	return nil
 }
 
 func (c *Cache) Get(key *string) (CacheData, bool) {
@@ -34,9 +41,10 @@ func (c *Cache) Get(key *string) (CacheData, bool) {
 	return val, ok
 }
 
-//func (c* Cache) Del(key *string) {
-//c.mu.lock()
-//c.mu.unlock()
+//func (c *Cache) Del(key *string) {
+//	c.mu.Lock()
+//	val, ok := c.cm[*key]
+//	defer c.mu.Unlock()
 //}
 
 var cm = map[string]CacheData{}
