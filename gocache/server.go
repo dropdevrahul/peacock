@@ -9,10 +9,8 @@ import (
 )
 
 const (
-	COMMAND_LENGTH             int = 11 // in bytes
-	KEY_LENGTH                 int = 64 // in bytes
-	MAX_PAYLOAD_SIZE               = 1468
-	HEADER_CONTENT_LENGTH_NAME     = "CONTENT-LENGTH:"
+	COMMAND_LENGTH int = 11 // in bytes
+	KEY_LENGTH     int = 64 // in bytes
 )
 
 const (

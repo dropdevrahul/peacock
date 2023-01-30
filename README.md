@@ -1,7 +1,25 @@
-# A simple go based cache library which is still in planning phase
+# A simple go based key:value in memory cache which can be set over tcp using a custom tcp library
 
-### Features planned
+## Running the project
 
-1. Hash Map Memory based cache
-2. A cluster based highly available setup using [raft](https://github.com/dropdevrahul/gocache/tree/master) consensus algorithm.
-3. Eventually allowing flushing current cache to disk to survive server restarts/failures
+```
+go run main.go
+```
+
+or
+
+```
+go build
+
+./gocache
+
+./gocache -h  
+
+./gocache -host 0.0.0.0 -port 1265
+```
+
+### Client
+There is a [client](https://github.com/dropdevrahul/gocacheclient) library to call the server over tcp
+
+
+
