@@ -2,6 +2,7 @@ package gocache
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -28,6 +29,7 @@ func (c *Cache) Set(key *string, data []byte) error {
 		LastUsed:  (time.Now()).UnixNano(),
 		BytesData: data,
 	}
+	fmt.Println("Set key: " + *key)
 
 	defer c.mu.Unlock()
 
@@ -38,6 +40,7 @@ func (c *Cache) Get(key *string) (CacheData, bool) {
 	c.mu.Lock()
 	val, ok := c.cm[*key]
 	defer c.mu.Unlock()
+	fmt.Println("Get key: " + *key)
 	return val, ok
 }
 

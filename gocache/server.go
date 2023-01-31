@@ -5,17 +5,24 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"net"
+	"strconv"
+	"strings"
 )
 
 const (
-	COMMAND_LENGTH int = 11 // in bytes
-	KEY_LENGTH     int = 64 // in bytes
+	COMMAND_LENGTH     int = 11 // in bytes
+	KEY_LENGTH         int = 64 // in bytes
+	MAX_REQUEST_LENGTH     = 2048
+	MAX_PAYLOAD_LENGTH     = 2048 - 75
 )
 
 const (
 	SUCCESS = iota + 1
-	FAILURE
+	EMPTYVALUE
+	NOTFOUND
+	INVALIDCOMMAND
 )
 
 type Server struct {
@@ -30,15 +37,44 @@ type Response struct {
 
 func (s *Server) Serve() error {
 	defer s.Conn.Close()
+	reader := bufio.NewReader(s.Conn)
+
 	// since tcp is stream based we are never sure when the payload ends/start so requires sending a header with payload length to parse it
-	// also since ordering is not guranteed we need a way to track requests so its better to do it in a channel with timeout
-	// we will use fixed length data load in order to gurantee we process one message at a time without overlap
-	rBuff := make([]byte, 1468)
-	_, _ = bufio.NewReader(s.Conn).Read(rBuff)
+	// get payload length from header, header is the first line
+	header, err := reader.ReadBytes('\n')
+	if err != nil {
+		log.Println(err)
 
-	err := s.Handle(rBuff)
+		return errors.New("Error while reading request")
+	}
 
-	return err
+	h := string(header)
+	h = strings.TrimSuffix(h, "\n")
+	l, err := strconv.Atoi(h)
+	if err != nil {
+		log.Println(err)
+
+		return errors.New("Error reading payload length")
+	}
+
+	rBuff := make([]byte, l)
+	n, err := reader.Read(rBuff)
+	if err != nil {
+		log.Println(err)
+
+		return errors.New("Error while reading request")
+	}
+
+	if n != l {
+		err = errors.New("Error while reading request")
+		log.Println(err)
+
+		return err
+	}
+
+	s.Handle(rBuff)
+
+	return nil
 }
 
 func (s *Server) SendResponse(r *Response) {
@@ -59,15 +95,18 @@ func (s *Server) Set(message []byte) (CacheData, error) {
 	return val, nil
 }
 
-func (s *Server) Handle(message []byte) error {
+func (s *Server) Handle(message []byte) {
 	cmd := string(bytes.ToUpper(bytes.TrimSpace(message[:COMMAND_LENGTH])))
+
 	if cmd == "SET" {
 		val, err := s.Set(message)
 		if err != nil {
 			r := Response{}
-			r.Status = FAILURE
+			r.Status = EMPTYVALUE
 			r.Error = "Empty value for key"
 			s.SendResponse(&r)
+
+			return
 		}
 
 		r := Response{
@@ -77,7 +116,8 @@ func (s *Server) Handle(message []byte) error {
 
 		s.SendResponse(&r)
 
-		return nil
+		return
+
 	} else if cmd == "GET" {
 		key := string(bytes.TrimSpace(message[COMMAND_LENGTH:KEY_LENGTH]))
 		if value, ok := HashMapCache.Get(&key); ok {
@@ -87,16 +127,21 @@ func (s *Server) Handle(message []byte) error {
 			r.Error = ""
 			r.Data = payload
 			s.SendResponse(&r)
-			return nil
+			return
 		}
 
 		r := Response{}
-		r.Status = FAILURE
+		r.Status = NOTFOUND
 		r.Error = "not found"
 		s.SendResponse(&r)
 
-		return nil
+		return
 	}
 
-	return errors.New("Unkown command:" + cmd)
+	r := Response{
+		Status: INVALIDCOMMAND,
+		Error:  "invalid command",
+	}
+
+	s.SendResponse(&r)
 }
