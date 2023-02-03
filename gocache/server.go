@@ -23,6 +23,7 @@ const (
 	EMPTYVALUE
 	NOTFOUND
 	INVALIDCOMMAND
+	FAILURE
 )
 
 type Server struct {
@@ -83,64 +84,68 @@ func (s *Server) SendResponse(r *Response) {
 	s.Conn.Write(b)
 }
 
-func (s *Server) Set(message []byte) (CacheData, error) {
+func (s *Server) GetKey(message []byte) string {
 	key := string(bytes.TrimSpace(message[COMMAND_LENGTH:KEY_LENGTH]))
 
+	return key
+}
+
+func (s *Server) Del(message []byte, r *Response) {
+	key := s.GetKey(message)
+	if value, ok := HashMapCache.Get(&key); ok {
+		HashMapCache.Del(&key)
+		r.Status = SUCCESS
+		r.Error = ""
+		r.Data = value.BytesData
+	} else {
+		r.Status = NOTFOUND
+		r.Error = "not found"
+	}
+}
+
+func (s *Server) Get(message []byte, r *Response) {
+	key := s.GetKey(message)
+
+	if value, ok := HashMapCache.Get(&key); ok {
+		r.Status = SUCCESS
+		r.Error = ""
+		r.Data = value.BytesData
+	} else {
+		r.Status = NOTFOUND
+		r.Error = "not found"
+	}
+}
+
+func (s *Server) Set(message []byte, r *Response) {
+	key := s.GetKey(message)
 	payload := bytes.TrimSpace(message[COMMAND_LENGTH+KEY_LENGTH:])
+
 	err := HashMapCache.Set(&key, payload)
 	if err != nil {
-		return CacheData{}, err
+		r.Status = EMPTYVALUE // TODO handle more errors
+		r.Error = err.Error()
+		r.Data = []byte{}
+	} else {
+		val, _ := HashMapCache.Get(&key)
+		r.Status = SUCCESS
+		r.Data = val.BytesData
+		r.Error = ""
 	}
-	val, _ := HashMapCache.Get(&key)
-	return val, nil
 }
 
 func (s *Server) Handle(message []byte) {
 	cmd := string(bytes.ToUpper(bytes.TrimSpace(message[:COMMAND_LENGTH])))
-
-	if cmd == "SET" {
-		val, err := s.Set(message)
-		if err != nil {
-			r := Response{}
-			r.Status = EMPTYVALUE
-			r.Error = "Empty value for key"
-			s.SendResponse(&r)
-
-			return
-		}
-
-		r := Response{
-			Status: SUCCESS,
-			Data:   val.BytesData,
-		}
-
-		s.SendResponse(&r)
-
-		return
-
-	} else if cmd == "GET" {
-		key := string(bytes.TrimSpace(message[COMMAND_LENGTH:KEY_LENGTH]))
-		if value, ok := HashMapCache.Get(&key); ok {
-			r := Response{}
-			payload := value.BytesData
-			r.Status = SUCCESS
-			r.Error = ""
-			r.Data = payload
-			s.SendResponse(&r)
-			return
-		}
-
-		r := Response{}
-		r.Status = NOTFOUND
-		r.Error = "not found"
-		s.SendResponse(&r)
-
-		return
-	}
-
-	r := Response{
-		Status: INVALIDCOMMAND,
-		Error:  "invalid command",
+	r := Response{}
+	switch cmd {
+	case "SET":
+		s.Set(message, &r)
+	case "GET":
+		s.Get(message, &r)
+	case "DEL":
+		s.Del(message, &r)
+	default:
+		r.Error = "invalid command"
+		r.Status = INVALIDCOMMAND
 	}
 
 	s.SendResponse(&r)

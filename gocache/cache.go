@@ -44,11 +44,11 @@ func (c *Cache) Get(key *string) (CacheData, bool) {
 	return val, ok
 }
 
-//func (c *Cache) Del(key *string) {
-//	c.mu.Lock()
-//	val, ok := c.cm[*key]
-//	defer c.mu.Unlock()
-//}
+func (c *Cache) Del(key *string) {
+	c.mu.Lock()
+	delete(c.cm, *key)
+	defer c.mu.Unlock()
+}
 
 var cm = map[string]CacheData{}
 var HashMapCache = &Cache{

@@ -20,6 +20,3 @@ go build
 
 ### Client
 There is a [client](https://github.com/dropdevrahul/gocacheclient) library to call the server over tcp
-
-
-
