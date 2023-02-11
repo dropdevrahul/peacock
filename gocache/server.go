@@ -9,6 +9,8 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/dropdevrahul/gocache/gocache/queue"
 )
 
 const (
@@ -27,7 +29,24 @@ const (
 )
 
 type Server struct {
-	Conn net.Conn
+	c        *Cache
+	settings ServerSettings
+}
+
+type ServerSettings struct {
+	MaxCapacity int
+}
+
+func NewServer(s ServerSettings) *Server {
+	var c = &Cache{
+		MaxCapacity: s.MaxCapacity,
+		cm:          map[string]CacheData{},
+		q:           queue.NewQueue[string](),
+	}
+	return &Server{
+		c:        c,
+		settings: s,
+	}
 }
 
 type Response struct {
@@ -36,9 +55,11 @@ type Response struct {
 	Data   []byte
 }
 
-func (s *Server) Serve() error {
-	defer s.Conn.Close()
-	reader := bufio.NewReader(s.Conn)
+func (s *Server) Serve(conn net.Conn) error {
+
+	defer conn.Close()
+
+	reader := bufio.NewReader(conn)
 
 	// since tcp is stream based we are never sure when the payload ends/start so requires sending a header with payload length to parse it
 	// get payload length from header, header is the first line
@@ -73,15 +94,15 @@ func (s *Server) Serve() error {
 		return err
 	}
 
-	s.Handle(rBuff)
+	s.Handle(rBuff, conn)
 
 	return nil
 }
 
-func (s *Server) SendResponse(r *Response) {
+func (s *Server) SendResponse(r *Response, conn net.Conn) {
 	header := fmt.Sprintf("%d %s\n", r.Status, r.Error)
 	b := append([]byte(header), r.Data...)
-	s.Conn.Write(b)
+	conn.Write(b)
 }
 
 func (s *Server) GetKey(message []byte) string {
@@ -92,11 +113,11 @@ func (s *Server) GetKey(message []byte) string {
 
 func (s *Server) Del(message []byte, r *Response) {
 	key := s.GetKey(message)
-	if value, ok := HashMapCache.Get(&key); ok {
-		HashMapCache.Del(&key)
+	if value, ok := s.c.Get(&key); ok {
+		s.c.Del(&key)
 		r.Status = SUCCESS
 		r.Error = ""
-		r.Data = value.BytesData
+		r.Data = []byte(value)
 	} else {
 		r.Status = NOTFOUND
 		r.Error = "not found"
@@ -106,10 +127,10 @@ func (s *Server) Del(message []byte, r *Response) {
 func (s *Server) Get(message []byte, r *Response) {
 	key := s.GetKey(message)
 
-	if value, ok := HashMapCache.Get(&key); ok {
+	if value, ok := s.c.Get(&key); ok {
 		r.Status = SUCCESS
 		r.Error = ""
-		r.Data = value.BytesData
+		r.Data = []byte(value)
 	} else {
 		r.Status = NOTFOUND
 		r.Error = "not found"
@@ -120,20 +141,21 @@ func (s *Server) Set(message []byte, r *Response) {
 	key := s.GetKey(message)
 	payload := bytes.TrimSpace(message[COMMAND_LENGTH+KEY_LENGTH:])
 
-	err := HashMapCache.Set(&key, payload)
+	err := s.c.Set(&key, payload)
 	if err != nil {
+		fmt.Println(err)
 		r.Status = EMPTYVALUE // TODO handle more errors
 		r.Error = err.Error()
 		r.Data = []byte{}
 	} else {
-		val, _ := HashMapCache.Get(&key)
+		val, _ := s.c.Get(&key)
 		r.Status = SUCCESS
-		r.Data = val.BytesData
+		r.Data = []byte(val)
 		r.Error = ""
 	}
 }
 
-func (s *Server) Handle(message []byte) {
+func (s *Server) Handle(message []byte, conn net.Conn) {
 	cmd := string(bytes.ToUpper(bytes.TrimSpace(message[:COMMAND_LENGTH])))
 	r := Response{}
 	switch cmd {
@@ -148,5 +170,5 @@ func (s *Server) Handle(message []byte) {
 		r.Status = INVALIDCOMMAND
 	}
 
-	s.SendResponse(&r)
+	s.SendResponse(&r, conn)
 }

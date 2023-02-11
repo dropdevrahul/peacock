@@ -11,6 +11,8 @@ import (
 func main() {
 	host := flag.String("host", "0.0.0.0", "Host to listen on")
 	port := flag.String("port", "9999", "port to listen on")
+	size := flag.Int("max-size", 100000,
+		"Maximum number of items allowed in cache before LRU kicks in")
 
 	flag.Parse()
 
@@ -21,17 +23,21 @@ func main() {
 	}
 	defer l.Close()
 
+	server := gocache.NewServer(
+		gocache.ServerSettings{
+			MaxCapacity: *size,
+		},
+	)
+
 	fmt.Printf("Server listening on %s:%s\n", *host, *port)
+
 	for {
 		c, err := l.Accept()
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		server := &gocache.Server{
-			Conn: c,
-		}
 
-		go server.Serve()
+		go server.Serve(c)
 	}
 }

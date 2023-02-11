@@ -4,19 +4,26 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
+
+	"github.com/dropdevrahul/gocache/gocache/queue"
 )
 
 var ErrEmptyValue = errors.New("empty value")
 
 type CacheData struct {
-	LastUsed  int64
-	BytesData []byte
+	QueueNode *queue.Node[string]
 }
 
+// Cache uses LRU by default
 type Cache struct {
-	cm map[string]CacheData
-	mu sync.Mutex
+	q           *queue.Queue[string]
+	cm          map[string]CacheData
+	MaxCapacity int
+	mu          sync.Mutex
+}
+
+func (c *Cache) Len() int {
+	return c.q.Len
 }
 
 func (c *Cache) Set(key *string, data []byte) error {
@@ -24,33 +31,51 @@ func (c *Cache) Set(key *string, data []byte) error {
 		return ErrEmptyValue
 	}
 
+	dataS := string(data)
+
 	c.mu.Lock()
-	c.cm[*key] = CacheData{
-		LastUsed:  (time.Now()).UnixNano(),
-		BytesData: data,
+	if c.q.Len < c.MaxCapacity {
+		node := queue.Node[string]{
+			Value: dataS,
+			Key:   key,
+		}
+		c.q.PushEnd(&node)
+	} else {
+		rKey := c.q.Start
+		if c.q.Start != nil {
+			delete(c.cm, *rKey.Key)
+		}
+		c.q.LruMove(dataS, key)
 	}
-	fmt.Println("Set key: " + *key)
+
+	c.cm[*key] = CacheData{
+		QueueNode: c.q.Last,
+	}
 
 	defer c.mu.Unlock()
+
+	fmt.Println("Set key: " + *key)
 
 	return nil
 }
 
-func (c *Cache) Get(key *string) (CacheData, bool) {
+func (c *Cache) Get(key *string) (string, bool) {
 	c.mu.Lock()
+
 	val, ok := c.cm[*key]
+
 	defer c.mu.Unlock()
+
 	fmt.Println("Get key: " + *key)
-	return val, ok
+	if val.QueueNode == nil {
+		return "", ok
+	}
+
+	return val.QueueNode.Value, ok
 }
 
 func (c *Cache) Del(key *string) {
 	c.mu.Lock()
 	delete(c.cm, *key)
 	defer c.mu.Unlock()
-}
-
-var cm = map[string]CacheData{}
-var HashMapCache = &Cache{
-	cm: map[string]CacheData{},
 }
