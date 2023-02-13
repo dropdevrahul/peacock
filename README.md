@@ -23,10 +23,28 @@ go build
 ```
 
 * For changing default host and port use the `-host` and `-port` option
+
+Default port is `9999`
+
+```
+./gocache -host 0.0.0.0 -port 1265
+
 ```
 
-./gocache -host 0.0.0.0 -port 1265
+## Running using Docker
+
+* using the docker-compose
+
 ```
+docker-compose up -d --build
+```
+
+* Image can be generated using the Dockerfile
+
+```
+ docker build -t gocache .
+```
+
 
 ## Configuring LRU limits
 
