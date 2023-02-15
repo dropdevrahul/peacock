@@ -28,7 +28,6 @@ func TestPushEnd(t *testing.T) {
 		assert.Equal(t, q.Start, n)
 		assert.Equal(t, q.Last, n2)
 	})
-
 }
 
 func TestPushStart(t *testing.T) {

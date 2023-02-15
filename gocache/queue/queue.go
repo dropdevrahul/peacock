@@ -1,3 +1,4 @@
+// Package queue A linked list based Queue, use the NewQueue method to allocate a new queue
 package queue
 
 import "sync"
@@ -73,7 +74,6 @@ func (q *Queue[T]) LruMove(val T, key *string) {
 		q.Start.Value = val
 		q.Start.Key = key
 	} else {
-
 		n := q.Start
 		n.Value = val
 		n.Key = key

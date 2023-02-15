@@ -1,3 +1,5 @@
+// Package gocache this package provides the Server & ServerSettings types
+// to start to handle a tcp request
 package gocache
 
 import (
@@ -55,7 +57,7 @@ type Response struct {
 	Data   []byte
 }
 
-func (s *Server) Serve(conn net.Conn) error {
+func (s *Server) Serve(conn net.Conn) {
 
 	defer conn.Close()
 
@@ -66,8 +68,7 @@ func (s *Server) Serve(conn net.Conn) error {
 	header, err := reader.ReadBytes('\n')
 	if err != nil {
 		log.Println(err)
-
-		return errors.New("Error while reading request")
+		return
 	}
 
 	h := string(header)
@@ -75,34 +76,32 @@ func (s *Server) Serve(conn net.Conn) error {
 	l, err := strconv.Atoi(h)
 	if err != nil {
 		log.Println(err)
-
-		return errors.New("Error reading payload length")
+		return
 	}
 
 	rBuff := make([]byte, l)
 	n, err := reader.Read(rBuff)
 	if err != nil {
 		log.Println(err)
-
-		return errors.New("Error while reading request")
+		return
 	}
 
 	if n != l {
-		err = errors.New("Error while reading request")
+		err = errors.New("error while reading request")
 		log.Println(err)
-
-		return err
+		return
 	}
 
 	s.Handle(rBuff, conn)
-
-	return nil
 }
 
 func (s *Server) SendResponse(r *Response, conn net.Conn) {
 	header := fmt.Sprintf("%d %s\n", r.Status, r.Error)
 	b := append([]byte(header), r.Data...)
-	conn.Write(b)
+	n, err := conn.Write(b)
+	if err != nil || n != len(b) {
+		log.Panic("Unable to write complete data to conn", err)
+	}
 }
 
 func (s *Server) GetKey(message []byte) string {

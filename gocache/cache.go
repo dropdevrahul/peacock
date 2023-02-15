@@ -19,7 +19,7 @@ type Cache struct {
 	q           *queue.Queue[string]
 	cm          map[string]CacheData
 	MaxCapacity int
-	mu          sync.Mutex
+	mu          sync.RWMutex
 }
 
 func (c *Cache) Len() int {
@@ -60,11 +60,11 @@ func (c *Cache) Set(key *string, data []byte) error {
 }
 
 func (c *Cache) Get(key *string) (string, bool) {
-	c.mu.Lock()
+	c.mu.RLock()
 
 	val, ok := c.cm[*key]
 
-	defer c.mu.Unlock()
+	defer c.mu.RUnlock()
 
 	fmt.Println("Get key: " + *key)
 	if val.QueueNode == nil {

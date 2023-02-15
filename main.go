@@ -1,3 +1,4 @@
+// Entry point for the server
 package main
 
 import (
