@@ -11,23 +11,22 @@ import (
 	"net"
 	"strconv"
 	"strings"
-
-	"github.com/dropdevrahul/gocache/gocache/queue"
+	"time"
 )
 
 const (
-	COMMAND_LENGTH     int = 11 // in bytes
-	KEY_LENGTH         int = 64 // in bytes
-	MAX_REQUEST_LENGTH     = 2048
-	MAX_PAYLOAD_LENGTH     = 2048 - 75
+	CommandLength    = 11
+	KeyLength        = 64
+	MaxRequestLength = 2048
+	MaxPayloadLength = 2048 - 75
 )
 
 const (
-	SUCCESS = iota + 1
-	EMPTYVALUE
-	NOTFOUND
-	INVALIDCOMMAND
-	FAILURE
+	Success = iota + 1
+	EmptyValue
+	NotFound
+	InvalidCommand
+	Failure
 )
 
 type Server struct {
@@ -36,15 +35,12 @@ type Server struct {
 }
 
 type ServerSettings struct {
-	MaxCapacity int
+	MaxCapacity uint64
 }
 
 func NewServer(s ServerSettings) *Server {
-	var c = &Cache{
-		MaxCapacity: s.MaxCapacity,
-		cm:          map[string]CacheData{},
-		q:           queue.NewQueue[string](),
-	}
+	c := NewCache(s.MaxCapacity)
+
 	return &Server{
 		c:        c,
 		settings: s,
@@ -58,8 +54,6 @@ type Response struct {
 }
 
 func (s *Server) Serve(conn net.Conn) {
-
-	defer conn.Close()
 
 	reader := bufio.NewReader(conn)
 
@@ -93,6 +87,11 @@ func (s *Server) Serve(conn net.Conn) {
 	}
 
 	s.Handle(rBuff, conn)
+
+	err = conn.Close()
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func (s *Server) SendResponse(r *Response, conn net.Conn) {
@@ -105,69 +104,74 @@ func (s *Server) SendResponse(r *Response, conn net.Conn) {
 }
 
 func (s *Server) GetKey(message []byte) string {
-	key := string(bytes.TrimSpace(message[COMMAND_LENGTH:KEY_LENGTH]))
+	key := string(bytes.TrimSpace(message[CommandLength:KeyLength]))
 
 	return key
 }
 
-func (s *Server) Del(message []byte, r *Response) {
-	key := s.GetKey(message)
-	if value, ok := s.c.Get(&key); ok {
-		s.c.Del(&key)
-		r.Status = SUCCESS
-		r.Error = ""
-		r.Data = []byte(value)
-	} else {
-		r.Status = NOTFOUND
-		r.Error = "not found"
-	}
-}
-
 func (s *Server) Get(message []byte, r *Response) {
 	key := s.GetKey(message)
-
 	if value, ok := s.c.Get(&key); ok {
-		r.Status = SUCCESS
+		r.Status = Success
 		r.Error = ""
 		r.Data = []byte(value)
 	} else {
-		r.Status = NOTFOUND
+		r.Status = NotFound
 		r.Error = "not found"
 	}
 }
 
 func (s *Server) Set(message []byte, r *Response) {
 	key := s.GetKey(message)
-	payload := bytes.TrimSpace(message[COMMAND_LENGTH+KEY_LENGTH:])
-
+	payload := bytes.TrimSpace(message[CommandLength+KeyLength:])
 	err := s.c.Set(&key, payload)
 	if err != nil {
 		fmt.Println(err)
-		r.Status = EMPTYVALUE // TODO handle more errors
+		r.Status = EmptyValue // TODO handle more errors
 		r.Error = err.Error()
 		r.Data = []byte{}
 	} else {
 		val, _ := s.c.Get(&key)
-		r.Status = SUCCESS
+		r.Status = Success
 		r.Data = []byte(val)
 		r.Error = ""
 	}
 }
 
 func (s *Server) Handle(message []byte, conn net.Conn) {
-	cmd := string(bytes.ToUpper(bytes.TrimSpace(message[:COMMAND_LENGTH])))
+	cmd := string(bytes.ToUpper(bytes.TrimSpace(message[:CommandLength])))
 	r := Response{}
 	switch cmd {
 	case "SET":
 		s.Set(message, &r)
 	case "GET":
 		s.Get(message, &r)
-	case "DEL":
-		s.Del(message, &r)
+	case "SET_TTL":
+		s.SetTTL(message, &r)
 	default:
 		r.Error = "invalid command"
-		r.Status = INVALIDCOMMAND
+		r.Status = InvalidCommand
 	}
 
 	s.SendResponse(&r, conn)
+}
+
+func (s *Server) SetTTL(message []byte, r *Response) {
+	key := s.GetKey(message)
+	payload := bytes.TrimSpace(message[CommandLength+KeyLength:])
+
+	d, err := strconv.Atoi(string(payload))
+	if err != nil {
+		r.Data = []byte{}
+		r.Status = InvalidCommand
+		r.Error = fmt.Sprintf("invalid ttl value %s", string(payload))
+
+		return
+	}
+
+	ds := time.Second * time.Duration(d)
+	res := s.c.SetTTL(&key, &ds)
+
+	r.Data = []byte(fmt.Sprintf("%d", res))
+	r.Status = Success
 }

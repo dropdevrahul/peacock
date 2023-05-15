@@ -15,7 +15,7 @@ func TestPushEnd(t *testing.T) {
 		}
 
 		q.PushEnd(n)
-		assert.Equal(t, q.Len, 1)
+		assert.Equal(t, q.Len, uint64(1))
 		assert.Equal(t, q.Start, n)
 		assert.Equal(t, q.Last, n)
 
@@ -24,7 +24,7 @@ func TestPushEnd(t *testing.T) {
 		}
 
 		q.PushEnd(n2)
-		assert.Equal(t, q.Len, 2)
+		assert.Equal(t, q.Len, uint64(2))
 		assert.Equal(t, q.Start, n)
 		assert.Equal(t, q.Last, n2)
 	})
@@ -33,8 +33,25 @@ func TestPushEnd(t *testing.T) {
 func TestPushStart(t *testing.T) {
 	t.Run("queue-push-end", func(t *testing.T) {
 		q := queue.NewQueue[string]()
-		q.PushEnd(&queue.Node[string]{
+
+		n := &queue.Node[string]{
 			Value: "abc",
-		})
+		}
+
+		q.PushStart(n)
+
+		assert.Equal(t, q.Len, uint64(1))
+		assert.Equal(t, q.Start.Value, "abc")
+		assert.Equal(t, q.Last, n)
+
+		n2 := &queue.Node[string]{
+			Value: "abc",
+		}
+
+		q.PushStart(n2)
+
+		assert.Equal(t, q.Start, n2)
+		assert.Equal(t, q.Len, uint64(2))
+		assert.Equal(t, q.Last, n)
 	})
 }

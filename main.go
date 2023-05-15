@@ -12,7 +12,7 @@ import (
 func main() {
 	host := flag.String("host", "0.0.0.0", "Host to listen on")
 	port := flag.String("port", "9999", "port to listen on")
-	size := flag.Int("max-size", 100000,
+	size := flag.Uint64("max-size", 100000,
 		"Maximum number of items allowed in cache before LRU kicks in")
 
 	flag.Parse()
