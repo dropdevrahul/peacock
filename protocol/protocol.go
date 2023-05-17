@@ -2,9 +2,17 @@ package protocol
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"strconv"
 	"strings"
+)
+
+const (
+	CommandLength    = 11
+	KeyLength        = 64
+	MaxRequestLength = 2048
+	MaxPayloadLength = 2048 - 75
 )
 
 type Header struct {
@@ -36,7 +44,7 @@ func ReadHeaders(r *bufio.Reader, h *Header) error {
 	return nil
 }
 
-func ReadPayload(r *bufio.Reader, l int) ([]byte, error) {
+func ReadBody(r *bufio.Reader, l int) ([]byte, error) {
 	rBuff := make([]byte, l)
 	n, err := r.Read(rBuff)
 	if err != nil {
@@ -48,4 +56,18 @@ func ReadPayload(r *bufio.Reader, l int) ([]byte, error) {
 	}
 
 	return rBuff, nil
+}
+
+func ReadPayload(message []byte) []byte {
+	return bytes.TrimSpace(message[CommandLength+KeyLength:])
+}
+
+func GetKey(message []byte) string {
+	key := string(bytes.TrimSpace(message[CommandLength:KeyLength]))
+	return key
+}
+
+func GetCmd(message []byte) string {
+	cmd := string(bytes.ToUpper(bytes.TrimSpace(message[:CommandLength])))
+	return cmd
 }

@@ -4,7 +4,6 @@ package gocache
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"log"
 	"net"
@@ -12,13 +11,6 @@ import (
 	"time"
 
 	"github.com/dropdevrahul/gocache/protocol"
-)
-
-const (
-	CommandLength    = 11
-	KeyLength        = 64
-	MaxRequestLength = 2048
-	MaxPayloadLength = 2048 - 75
 )
 
 const (
@@ -65,7 +57,7 @@ func (s *Server) Serve(conn net.Conn) {
 		return
 	}
 
-	rBuff, err := protocol.ReadPayload(r, h.Len)
+	rBuff, err := protocol.ReadBody(r, h.Len)
 	if err != nil {
 		log.Println(err)
 		return
@@ -93,16 +85,12 @@ func (s *Server) SendResponse(r *Response, conn net.Conn) {
 }
 
 func (s *Server) GetPayload(message []byte) []byte {
-	fmt.Println(string(message))
-	payload := bytes.TrimSpace(message[CommandLength+KeyLength:])
-
-	return payload
+	p := protocol.ReadPayload(message)
+	return p
 }
 
 func (s *Server) GetKey(message []byte) string {
-	key := string(bytes.TrimSpace(message[CommandLength:KeyLength]))
-
-	return key
+	return protocol.GetKey(message)
 }
 
 // Get sets response.Data \x00 null byte if key is not present else sets it as value of key
@@ -123,8 +111,8 @@ func (s *Server) Set(message []byte, r *Response) {
 }
 
 func (s *Server) Handle(message []byte, conn net.Conn) {
-	cmd := string(bytes.ToUpper(bytes.TrimSpace(message[:CommandLength])))
 	r := Response{}
+	cmd := protocol.GetCmd(message)
 	switch cmd {
 	case "SET":
 		s.Set(message, &r)
