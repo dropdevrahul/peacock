@@ -42,14 +42,15 @@ func (c *Cache) Len() uint64 {
 
 // Set set a given key with given bytes data in the cache given the data can be encoded into
 // utf-8 string.
-func (c *Cache) Set(key *string, data []byte) error {
+func (c *Cache) Set(key *string, data []byte) int {
 	if len(data) == 0 {
-		return ErrEmptyValue
+		return -1
 	}
-
 	dataS := string(data)
 
 	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.q.Len < c.MaxCapacity {
 		node := queue.Node[string]{
 			Value: dataS,
@@ -68,9 +69,7 @@ func (c *Cache) Set(key *string, data []byte) error {
 		QueueNode: c.q.Last,
 	}
 
-	defer c.mu.Unlock()
-
-	return nil
+	return 0
 }
 
 // Get fetches a given string from the db returns the string and whether the
@@ -105,28 +104,24 @@ func (c *Cache) GetNode(key *string) (*queue.Node[string], bool) {
 
 func (c *Cache) SetTTL(key *string, ttl *time.Duration) int8 {
 	n, ok := c.GetNode(key)
-
 	if !ok {
 		return 0
 	}
-
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	n.TTL = ttl
 	return 1
 }
 
 func (c *Cache) GetTTL(key *string) time.Duration {
 	n, ok := c.GetNode(key)
-
 	if !ok {
 		return -2
 	}
-
 	if n.TTL == nil {
 		return -1
 	}
-
 	elapsed := time.Now().Sub(n.CreatedAt)
 	ttl := *n.TTL - elapsed
-
 	return ttl
 }

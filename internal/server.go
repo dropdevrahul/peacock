@@ -5,13 +5,13 @@ package gocache
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"log"
 	"net"
 	"strconv"
-	"strings"
 	"time"
+
+	"github.com/dropdevrahul/gocache/protocol"
 )
 
 const (
@@ -48,46 +48,30 @@ func NewServer(s ServerSettings) *Server {
 }
 
 type Response struct {
-	Status int
-	Error  string
-	Data   []byte
+	Data []byte
 }
 
 func (s *Server) Serve(conn net.Conn) {
+	r := bufio.NewReader(conn)
+	h := protocol.Header{}
 
-	reader := bufio.NewReader(conn)
-
-	// since tcp is stream based we are never sure when the payload ends/start so requires sending a header with payload length to parse it
-	// get payload length from header, header is the first line
-	header, err := reader.ReadBytes('\n')
+	err := protocol.ReadHeaders(r, &h)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	h := string(header)
-	h = strings.TrimSuffix(h, "\n")
-	l, err := strconv.Atoi(h)
-	if err != nil {
-		log.Println(err)
+	if h.Len <= 0 {
 		return
 	}
 
-	rBuff := make([]byte, l)
-	n, err := reader.Read(rBuff)
+	rBuff, err := protocol.ReadPayload(r, h.Len)
 	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	if n != l {
-		err = errors.New("error while reading request")
 		log.Println(err)
 		return
 	}
 
 	s.Handle(rBuff, conn)
-
 	err = conn.Close()
 	if err != nil {
 		log.Println(err)
@@ -95,12 +79,24 @@ func (s *Server) Serve(conn net.Conn) {
 }
 
 func (s *Server) SendResponse(r *Response, conn net.Conn) {
-	header := fmt.Sprintf("%d %s\n", r.Status, r.Error)
-	b := append([]byte(header), r.Data...)
+	header := protocol.Header{
+		Len: len(r.Data),
+	}
+	b := append(header.ToBytes(), r.Data...)
+
+	log.Printf("response %s", string(b))
+
 	n, err := conn.Write(b)
 	if err != nil || n != len(b) {
 		log.Panic("Unable to write complete data to conn", err)
 	}
+}
+
+func (s *Server) GetPayload(message []byte) []byte {
+	fmt.Println(string(message))
+	payload := bytes.TrimSpace(message[CommandLength+KeyLength:])
+
+	return payload
 }
 
 func (s *Server) GetKey(message []byte) string {
@@ -109,33 +105,21 @@ func (s *Server) GetKey(message []byte) string {
 	return key
 }
 
+// Get sets response.Data \x00 null byte if key is not present else sets it as value of key
 func (s *Server) Get(message []byte, r *Response) {
 	key := s.GetKey(message)
 	if value, ok := s.c.Get(&key); ok {
-		r.Status = Success
-		r.Error = ""
 		r.Data = []byte(value)
 	} else {
-		r.Status = NotFound
-		r.Error = "not found"
+		r.Data = []byte("\x00")
 	}
 }
 
 func (s *Server) Set(message []byte, r *Response) {
 	key := s.GetKey(message)
-	payload := bytes.TrimSpace(message[CommandLength+KeyLength:])
-	err := s.c.Set(&key, payload)
-	if err != nil {
-		fmt.Println(err)
-		r.Status = EmptyValue // TODO handle more errors
-		r.Error = err.Error()
-		r.Data = []byte{}
-	} else {
-		val, _ := s.c.Get(&key)
-		r.Status = Success
-		r.Data = []byte(val)
-		r.Error = ""
-	}
+	payload := s.GetPayload(message)
+	val := s.c.Set(&key, payload)
+	r.Data = []byte(strconv.Itoa(val))
 }
 
 func (s *Server) Handle(message []byte, conn net.Conn) {
@@ -148,9 +132,10 @@ func (s *Server) Handle(message []byte, conn net.Conn) {
 		s.Get(message, &r)
 	case "SET_TTL":
 		s.SetTTL(message, &r)
+	case "GET_TTL":
+		s.GetTTL(message, &r)
 	default:
-		r.Error = "invalid command"
-		r.Status = InvalidCommand
+		r.Data = []byte{}
 	}
 
 	s.SendResponse(&r, conn)
@@ -158,20 +143,23 @@ func (s *Server) Handle(message []byte, conn net.Conn) {
 
 func (s *Server) SetTTL(message []byte, r *Response) {
 	key := s.GetKey(message)
-	payload := bytes.TrimSpace(message[CommandLength+KeyLength:])
+	payload := s.GetPayload(message)
 
 	d, err := strconv.Atoi(string(payload))
 	if err != nil {
-		r.Data = []byte{}
-		r.Status = InvalidCommand
-		r.Error = fmt.Sprintf("invalid ttl value %s", string(payload))
-
+		r.Data = []byte(strconv.Itoa(-1))
 		return
 	}
 
 	ds := time.Second * time.Duration(d)
 	res := s.c.SetTTL(&key, &ds)
-
 	r.Data = []byte(fmt.Sprintf("%d", res))
-	r.Status = Success
+}
+
+func (s *Server) GetTTL(message []byte, r *Response) {
+	key := s.GetKey(message)
+	res := s.c.GetTTL(&key)
+	ttl := fmt.Sprintf("%d", int(res.Seconds()))
+	log.Printf("get ttl %s", ttl)
+	r.Data = []byte(ttl)
 }
