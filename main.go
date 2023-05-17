@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/dropdevrahul/gocache/gocache"
+	gocache "github.com/dropdevrahul/gocache/internal"
 )
 
 func main() {

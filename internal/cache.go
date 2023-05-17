@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dropdevrahul/gocache/gocache/queue"
+	"github.com/dropdevrahul/gocache/internal/queue"
 )
 
 var ErrEmptyValue = errors.New("empty value")

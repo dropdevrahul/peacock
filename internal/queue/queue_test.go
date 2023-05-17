@@ -3,7 +3,7 @@ package queue_test
 import (
 	"testing"
 
-	"github.com/dropdevrahul/gocache/gocache/queue"
+	"github.com/dropdevrahul/gocache/internal/queue"
 	"github.com/stretchr/testify/assert"
 )
 
