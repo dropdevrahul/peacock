@@ -1,6 +1,6 @@
-// Package gocache this package provides the Server & ServerSettings types
+// Package peacock this package provides the Server & ServerSettings types
 // to start to handle a tcp request
-package gocache
+package peacock
 
 import (
 	"bufio"
@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dropdevrahul/gocache/protocol"
+	"github.com/dropdevrahul/peacock/protocol"
 )
 
 const (
@@ -63,6 +63,8 @@ func (s *Server) Serve(conn net.Conn) {
 		return
 	}
 
+	log.Println("rec", string(rBuff))
+
 	s.Handle(rBuff, conn)
 	err = conn.Close()
 	if err != nil {
@@ -75,9 +77,6 @@ func (s *Server) SendResponse(r *Response, conn net.Conn) {
 		Len: len(r.Data),
 	}
 	b := append(header.ToBytes(), r.Data...)
-
-	log.Printf("response %s", string(b))
-
 	n, err := conn.Write(b)
 	if err != nil || n != len(b) {
 		log.Panic("Unable to write complete data to conn", err)

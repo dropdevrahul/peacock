@@ -1,4 +1,4 @@
-module github.com/dropdevrahul/gocache
+module github.com/dropdevrahul/peacock
 
 go 1.20
 

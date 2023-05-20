@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	gocache "github.com/dropdevrahul/gocache/internal"
+	peacock "github.com/dropdevrahul/peacock/internal"
 )
 
 func main() {
@@ -24,8 +24,8 @@ func main() {
 	}
 	defer l.Close()
 
-	server := gocache.NewServer(
-		gocache.ServerSettings{
+	server := peacock.NewServer(
+		peacock.ServerSettings{
 			MaxCapacity: *size,
 		},
 	)

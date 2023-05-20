@@ -1,12 +1,12 @@
-// Package gocache A thread safe LRU based Cache
-package gocache
+// Package peacock A thread safe LRU based Cache
+package peacock
 
 import (
 	"errors"
 	"sync"
 	"time"
 
-	"github.com/dropdevrahul/gocache/internal/queue"
+	"github.com/dropdevrahul/peacock/internal/queue"
 )
 
 var ErrEmptyValue = errors.New("empty value")

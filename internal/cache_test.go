@@ -1,4 +1,4 @@
-package gocache
+package peacock
 
 import (
 	"testing"
@@ -12,9 +12,9 @@ func Test_SetKey(t *testing.T) {
 	cache := NewCache(10)
 
 	key := "abc"
-	err := cache.Set(&key, []byte("hello world"))
+	d := cache.Set(&key, []byte("hello world"))
 
-	assert.Equal(t, nil, err)
+	assert.Equal(t, 0, d)
 	assert.Equal(t, cache.Len(), uint64(1))
 	assert.Equal(t, "hello world", cache.q.Start.Value)
 	assert.Equal(t, (*time.Duration)(nil), cache.q.Start.TTL)
@@ -27,9 +27,9 @@ func Test_GetKey(t *testing.T) {
 	cache := NewCache(10)
 
 	key := "abc"
-	err := cache.Set(&key, []byte("hello world"))
+	d := cache.Set(&key, []byte("hello world"))
 
-	assert.Equal(t, nil, err)
+	assert.Equal(t, 0, d)
 
 	val, ok := cache.Get(&key)
 
@@ -79,7 +79,7 @@ func Test_GetTTL_NoKey(t *testing.T) {
 
 	r := cache.GetTTL(&key)
 
-	assert.Equal(t, int8(-2), r)
+	assert.Equal(t, time.Duration(-2), r)
 }
 
 func Test_GetTTL(t *testing.T) {
