@@ -53,7 +53,7 @@ docker-compose up -d --build
 The cache only supports Least Recently Used scheme for removing items once the -max-size limit is reached for cache. It is the maximum number of items that can be stored in the cache.
 
 ```
-./gocache -maz-size 1000
+./gocache -max-size 1000
 ```
 
 ## Client
