@@ -1,4 +1,4 @@
-![test event parameter](https://github.com/dropdevrahul/gocache/actions/workflows/test.yml/badge.svg?event=push) ![test event parameter](https://github.com/dropdevrahul/gocache/actions/workflows/lint.yml/badge.svg?event=push)
+![test event parameter](https://github.com/dropdevrahul/peacock/actions/workflows/test.yml/badge.svg?event=push) ![test event parameter](https://github.com/dropdevrahul/peacock/actions/workflows/lint.yml/badge.svg?event=push)
 
 ## Gocache
 A simple go based Key:Value in-memory cache which uses a custom tcp protocol for the server
